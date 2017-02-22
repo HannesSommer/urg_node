@@ -35,7 +35,7 @@
 
 using namespace urg_node;
 
-URGCWrapper::URGCWrapper(const std::string& ip_address, const int ip_port, bool& using_intensity, bool& using_multiecho){
+URGCWrapper::URGCWrapper(const std::string& ip_address, const int ip_port, bool& using_intensity, bool& using_multiecho, const boost::optional<std::string> node_name_space){
   // Store for comprehensive diagnostics
   ip_address_ = ip_address;
   ip_port_ = ip_port;
@@ -55,10 +55,10 @@ URGCWrapper::URGCWrapper(const std::string& ip_address, const int ip_port, bool&
     throw std::runtime_error(ss.str());
   }
 
-  initialize(using_intensity, using_multiecho);
+  initialize(using_intensity, using_multiecho, node_name_space);
 }
 
-URGCWrapper::URGCWrapper(const int serial_baud, const std::string& serial_port, bool& using_intensity, bool& using_multiecho){
+URGCWrapper::URGCWrapper(const int serial_baud, const std::string& serial_port, bool& using_intensity, bool& using_multiecho, const boost::optional<std::string> node_name_space){
   // Store for comprehensive diagnostics
   serial_baud_ = serial_baud;
   serial_port_ = serial_port;
@@ -77,10 +77,10 @@ URGCWrapper::URGCWrapper(const int serial_baud, const std::string& serial_port, 
     throw std::runtime_error(ss.str());
   }
 
-  initialize(using_intensity, using_multiecho);
+  initialize(using_intensity, using_multiecho, node_name_space);
 }
 
-void URGCWrapper::initialize(bool& using_intensity, bool& using_multiecho){
+void URGCWrapper::initialize(bool& using_intensity, bool& using_multiecho, const boost::optional<std::string> node_name_space){
   int urg_data_size = urg_max_data_size(&urg_);
   if(urg_data_size  > 5000){  // Ocassionally urg_max_data_size returns a string pointer, make sure we don't allocate too much space, the current known max is 1440 steps
     urg_data_size = 5000;
@@ -114,6 +114,12 @@ void URGCWrapper::initialize(bool& using_intensity, bool& using_multiecho){
 	} else if(use_multiecho_){
 		measurement_type_ = URG_MULTIECHO;
 	}
+
+  if(node_name_space){
+    device_time_translator_.reset(new cuckoo_time_translator::DefaultDeviceTimeUnwrapperAndTranslator(
+        cuckoo_time_translator::WrappingClockParameters(1L << 24, 1e3), //24bit counter according to hardware documentation while the 1kH are from the API documentation
+        *node_name_space));
+  }
 }
 
 void URGCWrapper::start(){
@@ -145,6 +151,17 @@ URGCWrapper::~URGCWrapper(){
 	urg_close(&urg_);
 }
 
+ros::Time URGCWrapper::translateToSystemTimestamp(const uint64_t system_time_stamp, const long hw_time_stamp) {
+  ros::Time system_time_stamp_ros;
+  system_time_stamp_ros.fromNSec(system_time_stamp);
+  const ros::Duration offset = system_latency_ + user_latency_ + getAngularTimeOffset();
+  if (device_time_translator_) {
+    return device_time_translator_->update(hw_time_stamp, system_time_stamp_ros, offset.toSec());
+  } else {
+    return system_time_stamp_ros + offset;
+  }
+}
+
 bool URGCWrapper::grabScan(const sensor_msgs::LaserScanPtr& msg){
   msg->header.frame_id = frame_id_;
   msg->angle_min = getAngleMin();
@@ -170,8 +187,7 @@ bool URGCWrapper::grabScan(const sensor_msgs::LaserScanPtr& msg){
   }
 
   // Fill scan
-  msg->header.stamp.fromNSec((uint64_t)system_time_stamp);
-  msg->header.stamp = msg->header.stamp + system_latency_ + user_latency_ + getAngularTimeOffset();
+  msg->header.stamp = translateToSystemTimestamp(system_time_stamp, time_stamp);
   msg->ranges.resize(num_beams);
   if(use_intensity_){
   	msg->intensities.resize(num_beams);
@@ -216,8 +232,7 @@ bool URGCWrapper::grabScan(const sensor_msgs::MultiEchoLaserScanPtr& msg){
   }
 
   // Fill scan (uses vector.reserve wherever possible to avoid initalization and unecessary memory expansion)
-  msg->header.stamp.fromNSec((uint64_t)system_time_stamp);
-  msg->header.stamp = msg->header.stamp + system_latency_ + user_latency_ + getAngularTimeOffset();
+  msg->header.stamp = translateToSystemTimestamp(system_time_stamp, time_stamp);
   msg->ranges.reserve(num_beams);
   if(use_intensity_){
   	msg->intensities.reserve(num_beams);

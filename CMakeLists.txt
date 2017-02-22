@@ -4,7 +4,7 @@ project(urg_node)
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
-find_package(catkin REQUIRED COMPONENTS roscpp sensor_msgs urg_c rosconsole nodelet dynamic_reconfigure tf laser_proc diagnostic_updater)
+find_package(catkin REQUIRED COMPONENTS roscpp sensor_msgs urg_c rosconsole nodelet dynamic_reconfigure tf laser_proc diagnostic_updater cuckoo_time_translator)
 
 # Dynamic reconfigure support
 generate_dynamic_reconfigure_options(cfg/URG.cfg)
@@ -19,7 +19,7 @@ generate_dynamic_reconfigure_options(cfg/URG.cfg)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES urg_c_wrapper
-  CATKIN_DEPENDS roscpp sensor_msgs urg_c rosconsole nodelet dynamic_reconfigure laser_proc
+  CATKIN_DEPENDS roscpp sensor_msgs urg_c rosconsole nodelet dynamic_reconfigure laser_proc cuckoo_time_translator
   DEPENDS
 )
 

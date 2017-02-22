@@ -38,6 +38,10 @@
 #include <sstream>
 #include <limits>
 
+#include <boost/shared_ptr.hpp>
+#include <boost/optional.hpp>
+
+#include <cuckoo_time_translator/DeviceTimeTranslator.h>
 #include <sensor_msgs/LaserScan.h>
 #include <sensor_msgs/MultiEchoLaserScan.h>
 
@@ -49,9 +53,9 @@ namespace urg_node
   class URGCWrapper
   {
   public:
-    URGCWrapper(const std::string& ip_address, const int ip_port, bool& using_intensity, bool& using_multiecho);
+    URGCWrapper(const std::string& ip_address, const int ip_port, bool& using_intensity, bool& using_multiecho, boost::optional<std::string> node_name_space = boost::optional<std::string>());
 
-    URGCWrapper(const int serial_baud, const std::string& serial_port, bool& using_intensity, bool& using_multiecho);
+    URGCWrapper(const int serial_baud, const std::string& serial_port, bool& using_intensity, bool& using_multiecho, boost::optional<std::string> node_name_space = boost::optional<std::string>());
 
     ~URGCWrapper();
 
@@ -122,7 +126,7 @@ namespace urg_node
     bool grabScan(const sensor_msgs::MultiEchoLaserScanPtr& msg);
 
   private:
-    void initialize(bool& using_intensity, bool& using_multiecho);
+    void initialize(bool& using_intensity, bool& using_multiecho, boost::optional<std::string> node_name_space);
 
     bool isIntensitySupported();
 
@@ -133,6 +137,8 @@ namespace urg_node
     ros::Duration getNativeClockOffset(size_t num_measurements);
 
     ros::Duration getTimeStampOffset(size_t num_measurements);
+
+    ros::Time translateToSystemTimestamp(uint64_t receive_time_stamp, long hw_time_stamp);
 
     std::string frame_id_; ///< Output frame_id for each laserscan.
 
@@ -157,6 +163,8 @@ namespace urg_node
     int ip_port_;
     std::string serial_port_;
     int serial_baud_;
+
+    boost::shared_ptr<cuckoo_time_translator::DefaultDeviceTimeUnwrapperAndTranslator> device_time_translator_;
   };
   
   

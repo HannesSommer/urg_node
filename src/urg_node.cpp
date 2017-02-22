@@ -237,9 +237,9 @@ int main(int argc, char **argv)
     	urg_.reset(); // Clear any previous connections();
     	ros::Duration(1.0).sleep();
       if(ip_address != ""){
-        urg_.reset(new urg_node::URGCWrapper(ip_address, ip_port, publish_intensity, publish_multiecho));
+        urg_.reset(new urg_node::URGCWrapper(ip_address, ip_port, publish_intensity, publish_multiecho, pnh.getNamespace()));
       } else {
-        urg_.reset(new urg_node::URGCWrapper(serial_baud, serial_port, publish_intensity, publish_multiecho));
+        urg_.reset(new urg_node::URGCWrapper(serial_baud, serial_port, publish_intensity, publish_multiecho, pnh.getNamespace()));
       }
     } catch(std::runtime_error& e){
       ROS_ERROR_THROTTLE(10.0, "Error connecting to Hokuyo: %s", e.what());
